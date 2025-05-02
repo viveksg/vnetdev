@@ -1,9 +1,13 @@
-obj-m += nic_driver.o
-KDIR := /lib/modules/$(shell uname -r)/build
-PWD := $(shell pwd)
-
-all:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
-
+CC=gcc
+LIBS=-lpthread
+BUILD_DIR=$(PWD)/output
+OBJ=net_tap.o
+dir:
+	mkdir -p $(BUILD_DIR)
+$(OBJ):
+	$(CC) -c net_tap.c -o $(BUILD_DIR)/$@
+net_tap:
+	$(CC) $(BUILD_DIR)/$@.o -o $(BUILD_DIR)/$@.elf $(LIBS)
+all: dir $(OBJ) net_tap
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
+	rm -r $(BUILD_DIR)

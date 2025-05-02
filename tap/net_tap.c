@@ -11,7 +11,7 @@
 #define BUFFER_SIZE 2048
 #define INTERFACE_NAME "tap0"
 int tap_fd;
-
+int chip_fd;
 char tap_tx_buffer[BUFFER_SIZE];
 char tap_rx_buffer[BUFFER_SIZE];
 pthread_mutex_t tap_fd_lock;
@@ -39,13 +39,33 @@ void *tx_task(void *arg)
             printf("Source MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
                    tap_tx_buffer[6], tap_tx_buffer[7], tap_tx_buffer[8], tap_tx_buffer[9], tap_tx_buffer[10], tap_tx_buffer[11]);
             printf("EtherType: 0x%02x%02x\n", tap_tx_buffer[12], tap_tx_buffer[13]);
+            write(chip_fd,tap_tx_buffer,BUFFER_SIZE);
             // for(int i  = 0; i < nread;i++)
             // printf("%c", tap_tx_buffer[i]);
             printf("-----------------xxxxxxx--------------------------");
         }
-        pthread_mutex_unlock(&tap_fd_lock);
-        pthread_mutex_unlock(&nic_dev_lock);
         pthread_mutex_unlock(&tx_buffer_lock);
+        pthread_mutex_unlock(&nic_dev_lock);
+        pthread_mutex_unlock(&tap_fd_lock);
+    }
+}
+
+void *rx_task(void *arg)
+{
+    while(1)
+    {
+        pthread_mutex_lock(&tap_fd_lock);
+        pthread_mutex_lock(&nic_dev_lock);
+        pthread_mutex_lock(&rx_buffer_lock);
+        int chip_read = read(chip_fd,tap_rx_buffer,BUFFER_SIZE);
+        if(chip_read > 0)
+        {
+            write(tap_fd,tap_rx_buffer,BUFFER_SIZE);
+        }
+        pthread_mutex_unlock(&rx_buffer_lock);
+        pthread_mutex_unlock(&nic_dev_lock);
+        pthread_mutex_unlock(&tap_fd_lock);
+        //usleep(1000);
     }
 }
 
@@ -83,6 +103,11 @@ int main(void)
         return -1;
     }
 
+    if ((chip_fd = open("/dev/ndevice", O_WRONLY)) < 0)
+    {
+        perror("Cannot obtain net device fd\n");
+        return -1;
+    }
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(struct ifreq));
     ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
