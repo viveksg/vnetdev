@@ -25,7 +25,7 @@ struct nic_card{
     uint8_t tx_link_buffer[MTU_VAL];
     uint8_t * rx_ring;
     uint8_t *tx_ring;
-}
+};
 
 
 #endif
