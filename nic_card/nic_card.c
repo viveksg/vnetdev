@@ -50,13 +50,14 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
             printk("Queue full, dropping packet\n");
             return QUEUE_FULL;
         }
-        uint8_t *qbuffer = phy_to_virt(qbase[qtail].buffer_address);
+        printk("Attempting to insert packet in queue\n");
+        uint8_t *qbuffer = phys_to_virt(qbase[qtail].buffer_address);
         if (op_direction == COPY_FROM_QUEUE)
             memcpy(buff, qbuffer, qbase[qtail].length);
         else
         {
             memcpy(qbuffer, buff, buff_len);
-            qbase[qtail].length = buff_len
+            qbase[qtail].length = buff_len;
                 qtail = (qtail + 1) % qsize;
         }
     }
@@ -71,7 +72,7 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
     return QUEUE_OP_SUCCESS;
 }
 
-void reset_desc_registers()
+void reset_desc_registers(void)
 {
     uint64_t tx_base = (uint64_t)((void *)tx_desc);
     uint64_t rx_base = (uint64_t)((void *)rx_desc);
@@ -127,7 +128,7 @@ void init_alloc(void)
     printk("Address rx_packet_buff: %x\n", (uint64_t)rx_packet_buff);
 }
 
-void reset_device()
+void reset_device(void)
 {
     init_alloc();
     init_descriptors(tx_desc, MTU, tx_packet_buff, DESC_COUNT);
@@ -136,6 +137,7 @@ void reset_device()
     print_descriptors(rx_desc, DESC_COUNT);
     reset_desc_registers();
 }
+
 loff_t ndev_lseek(struct file *file_p, loff_t curr_off, int whence)
 {
     loff_t temp;
@@ -213,7 +215,7 @@ static int __init chip_init(void)
 {
 
     int init_status;
-    init_alloc();
+    reset_device();
     init_status = alloc_chrdev_region(&ndev_num, 0, 1, "plat_net_dev");
     if (init_status < 0)
     {
