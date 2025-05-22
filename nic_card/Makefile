@@ -1,6 +1,7 @@
 BUILD_DIR=$(PWD)/output
 BUILD_DIR_BB=$(PWD)/output_beaglebone/
 obj-m := nic_card.o
+EXTRA_CFLAGS += -I$(PWD)/includes
 ARCH=arm
 CROSS_COMPILE=arm-none-linux-gnueabihf-
 KERN_DIR = /home/vivsg/projects/bblinux/v6.12.20
@@ -23,7 +24,7 @@ clean:
 help:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERN_DIR) M=$(PWD) help
 host:
-	make -C $(HOST_KERN_DIR) M=$(PWD) modules
+	make -C $(HOST_KERN_DIR)  M=$(PWD) modules
 	mkdir -p $(BUILD_DIR)
 	mv $(PWD)/.*.cmd $(BUILD_DIR)
 	mv $(PWD)/*ko $(BUILD_DIR)

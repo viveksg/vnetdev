@@ -1,5 +1,5 @@
 #include <stdint.h>
-#define NUM_REGISTERS
+#define NUM_REGISTERS 46
 
 //general
 #define REG_DEVICE_CTRL 0
@@ -33,7 +33,7 @@
 #define REG_RX_FCRTH 21 //FLOW CONTROL RECEIVE CONTROL THRESHOLD HIGH
 #define REG_RX_RDBAL 22 //Receive descriptor base low
 #define REG_RX_RDBAH 23 //Receive descriptor base high
-#define REG_RX_RDLENR 24 //Receive descriptor length
+#define REG_RX_RDLEN 24 //Receive descriptor length
 #define REG_RX_HEAD 25 //Receive descriptor head
 #define REG_RX_TAIL 26 //Receive descriptor tail
 #define REG_RX_RDTR 27 //Receive delay timer

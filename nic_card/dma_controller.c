@@ -5,7 +5,6 @@ uint32_t dst_addr = 0;
 uint32_t data_count = 0;
 uint8_t *tx_buffer;
 uint8_t *rx_buffer;
-uint32_t num_descriptors = DEFAULT_DESC_SIZE;
 dma_descriptor *tx_desc;
 dma_descriptor *rx_desc;
 uint32_t *reg_base;
