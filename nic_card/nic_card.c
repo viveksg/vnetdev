@@ -43,6 +43,7 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
 {
     uint16_t qtail = reg_base[qtail_ind];
     uint16_t qhead = reg_base[qhead_ind];
+    printk("queue head %d, queue_tail %d\n",qhead,qtail);
     if (op == QUEUE_OP_ENQUEUE)
     {
         if ((qtail + 1) % qsize == qhead)
@@ -177,16 +178,21 @@ ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *f
 
 ssize_t ndev_write(struct file *filep, const char __user *buff, size_t count, loff_t *fpos)
 {
-    if (*fpos + count > DEVICE_MEM)
-        count = DEVICE_MEM - (*fpos);
+   // if (*fpos + count > DEVICE_MEM)
+     //   count = DEVICE_MEM - (*fpos);
     if (!count)
     {
         pr_err("Chip module: No memory \n");
         return -ENOMEM;
     }
-    if (copy_from_user(&device_buffer[*fpos], buff, count))
+    if (copy_from_user(device_buffer, buff, count))
     {
         return -EFAULT;
+    }
+    if(queue_op(QUEUE_OP_ENQUEUE, rx_desc, REG_RX_HEAD, REG_RX_TAIL, DESC_COUNT, device_buffer, count, 0) == QUEUE_FULL)
+    {
+        printk("Queue full dropping packet\n");
+        return -ENOMEM;
     }
     *fpos += count;
     pr_info("Write bytes = %zu\n", count);
