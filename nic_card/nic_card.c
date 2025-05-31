@@ -22,25 +22,12 @@ dev_t ndev_num;
 struct cdev ndev;
 struct class *ndev_class;
 struct device *ndevice;
+uint8_t *mem;
+uint32_t * reg_base;
+static struct platform_device *npdev;
 
 dma_descriptor *tx_desc;
 dma_descriptor *rx_desc;
-uint32_t *reg_base;
-uint8_t *tx_packet_buff;
-uint8_t *rx_packet_buff;
-#define REG_MEM_SIZE 4096
-#define TX_DESC_MEM (DESC_COUNT * DESC_SIZE)
-#define RX_DESC_MEM (DESC_COUNT * DESC_SIZE)
-#define TX_BUFFER_MEM (MTU * DESC_COUNT)
-#define RX_BUFFER_MEM (MTU * DESC_COUNT)
-#define TOTAL_MEM (REG_MEM_SIZE + TX_DESC_MEM + RX_DESC_MEM + TX_BUFFER_MEM + RX_BUFFER_MEM)
-#define REG_OFFSET 0
-#define TX_DESC_MEM_OFFSET (REG_MEM_SIZE)
-#define RX_DESC_MEM_OFFSET (TX_DESC_MEM_OFFSET + TX_DESC_MEM)
-#define TX_BUFFER_OFFSET (RX_DESC_MEM_OFFSET + RX_DESC_MEM)
-#define RX_BUFFER_OFFSET (TX_BUFFER_OFFSET + TX_BUFFER_MEM)
-uint8_t *mem;
-static struct platform_device *npdev;
 int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction)
 {
     uint16_t qtail = reg_base[qtail_ind];
@@ -75,60 +62,11 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
     return QUEUE_OP_SUCCESS;
 }
 
-void reset_desc_registers(void)
-{
-    uint64_t tx_base = (uint64_t)((void *)tx_desc);
-    uint64_t rx_base = (uint64_t)((void *)rx_desc);
-
-    reg_base[REG_RX_RDBAL] = rx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
-    reg_base[REG_RX_RDBAH] = rx_base >> 32;
-    reg_base[REG_RX_HEAD] = 0;
-    reg_base[REG_RX_TAIL] = 0;
-    reg_base[REG_RX_RDLEN] = DESC_COUNT;
-
-    reg_base[REG_TX_TBAL] = tx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
-    reg_base[REG_TX_TBAH] = tx_base >> 32;
-    reg_base[REG_TX_TDH] = 0;
-    reg_base[REG_TX_TDT] = 0;
-    reg_base[REG_TX_TDLEN] = DESC_COUNT;
-}
-
-void init_descriptors(dma_descriptor *base, uint32_t buffer_size, uint8_t *buffer_base, uint32_t num_descriptors)
-{
-    uint8_t *curr_buffer = buffer_base;
-    for (int i = 0; i < num_descriptors; i++)
-    {
-        base[i].buffer_address = virt_to_phys(curr_buffer);
-        curr_buffer += buffer_size;
-    }
-}
-
-void print_descriptors(dma_descriptor *base, int count)
-{
-    for (int i = 0; i < count; i++)
-    {
-        pr_info("Descriptor base = %x,\n", base[i].buffer_address);
-    }
-}
-
 void init_alloc(void)
 {
-    mem = kmalloc(TOTAL_MEM, GFP_KERNEL);
-    memset(mem, 0, TOTAL_MEM);
+    mem = kmalloc(REG_MEM_SIZE, GFP_KERNEL);
+    memset(mem, 0, REG_MEM_SIZE);
     reg_base = (uint32_t *)mem;
-    tx_desc = (dma_descriptor *)((char *)mem + TX_DESC_MEM_OFFSET);
-    rx_desc = (dma_descriptor *)((char *)mem + RX_DESC_MEM_OFFSET);
-    tx_packet_buff = (char *)((char *)mem + TX_BUFFER_OFFSET);
-    rx_packet_buff = (char *)((char *)mem + RX_BUFFER_OFFSET);
-
-    pr_info("Allocated %ld bytes at address %p", TOTAL_MEM, (char *)mem);
-    pr_info("Address details:\n");
-    pr_info("Address reg_base: %x\n", (uint64_t)reg_base);
-    pr_info("Address tx_desc: %x\n", ((uint64_t)tx_desc));
-    pr_info("Address tx_desc:- %x\n", (((uint64_t)mem + 4096)));
-    pr_info("Address rx_desc: %x\n", (uint64_t)rx_desc);
-    pr_info("Address tx_packet_buff: %x\n", (uint64_t)tx_packet_buff);
-    pr_info("Address rx_packet_buff: %x\n", (uint64_t)rx_packet_buff);
 }
 
 void register_plat_device(void)
@@ -172,11 +110,6 @@ void register_plat_device(void)
 void reset_device(void)
 {
     init_alloc();
-    init_descriptors(tx_desc, MTU, tx_packet_buff, DESC_COUNT);
-    init_descriptors(rx_desc, MTU, tx_packet_buff, DESC_COUNT);
-    print_descriptors(tx_desc, DESC_COUNT);
-    print_descriptors(rx_desc, DESC_COUNT);
-    reset_desc_registers();
     register_plat_device();
 }
 
