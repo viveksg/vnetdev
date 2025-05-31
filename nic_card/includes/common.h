@@ -14,4 +14,7 @@
 #define QUEUE_EMPTY 1004
 #define QUEUE_OP_SUCCESS 1005
 #define COPY_FROM_QUEUE 1
+#define RES_NAME_REG_BASE "reg_base"
+#define PLAT_DEVICE_NAME "net_plat_dev"
+#define ETH_ALEN 6
 #endif

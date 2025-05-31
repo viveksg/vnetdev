@@ -1,7 +1,6 @@
 #ifndef __NIC_CARD__
 #define _NIC_CARD__
 
-#include <stdint.h>
 #define MTU_VAL 1500
 #define REG_BITS 32
 #define BUFFER_NUM 64

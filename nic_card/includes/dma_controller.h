@@ -1,7 +1,7 @@
 #ifndef DMA_CNTRL_
 #define DMA_CNTRL_
 #include "common.h"
-
+#include <linux/types.h>
 typedef struct{
     uint64_t *buffer_address;
     uint16_t length;

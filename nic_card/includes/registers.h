@@ -61,4 +61,4 @@
 #define REG_RX_PACKET_DROP 44
 #define REG_TX_PACKET_DROP 45
 
-uint32_t get_bytes(uint32_t shift, uint32_t length, uint32_t val);
+//uint32_t get_bytes(uint32_t shift, uint32_t length, uint32_t val);

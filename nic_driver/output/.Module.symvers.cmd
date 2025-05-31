@@ -1,0 +1,1 @@
+savedcmd_/home/vivsg/projects/vnetdev/nic_driver/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/vivsg/projects/vnetdev/nic_driver/Module.symvers -T /home/vivsg/projects/vnetdev/nic_driver/modules.order -i Module.symvers -e 
