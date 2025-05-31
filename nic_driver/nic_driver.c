@@ -30,6 +30,113 @@ struct pndev_priv{
     int rx_irq;
     struct net_device *ndev;
 };
+
+dma_descriptor *tx_desc;
+dma_descriptor *rx_desc;
+uint32_t *reg_base;
+uint8_t *tx_packet_buff;
+uint8_t *rx_packet_buff;
+uint8_t *mem;
+
+int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction)
+{
+    uint16_t qtail = reg_base[qtail_ind];
+    uint16_t qhead = reg_base[qhead_ind];
+    pr_info("queue head %d, queue_tail %d\n",qhead,qtail);
+    if (op == QUEUE_OP_ENQUEUE)
+    {
+        if ((qtail + 1) % qsize == qhead)
+        {
+            pr_info("Queue full, dropping packet\n");
+            return QUEUE_FULL;
+        }
+        pr_info("Attempting to insert packet in queue\n");
+        uint8_t *qbuffer = phys_to_virt(qbase[qtail].buffer_address);
+        if (op_direction == COPY_FROM_QUEUE)
+            memcpy(buff, qbuffer, qbase[qtail].length);
+        else
+        {
+            memcpy(qbuffer, buff, buff_len);
+            qbase[qtail].length = buff_len;
+                qtail = (qtail + 1) % qsize;
+        }
+    }
+    else
+    {
+        if (qhead == qtail)
+            return QUEUE_EMPTY;
+        qhead = (qhead + 1) % qsize;
+    }
+    reg_base[qtail_ind] = qtail;
+    reg_base[qhead_ind] = qhead;
+    return QUEUE_OP_SUCCESS;
+}
+
+void reset_desc_registers(void)
+{
+    uint64_t tx_base = (uint64_t)((void *)tx_desc);
+    uint64_t rx_base = (uint64_t)((void *)rx_desc);
+
+    reg_base[REG_RX_RDBAL] = rx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
+    reg_base[REG_RX_RDBAH] = rx_base >> 32;
+    reg_base[REG_RX_HEAD] = 0;
+    reg_base[REG_RX_TAIL] = 0;
+    reg_base[REG_RX_RDLEN] = DESC_COUNT;
+
+    reg_base[REG_TX_TBAL] = tx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
+    reg_base[REG_TX_TBAH] = tx_base >> 32;
+    reg_base[REG_TX_TDH] = 0;
+    reg_base[REG_TX_TDT] = 0;
+    reg_base[REG_TX_TDLEN] = DESC_COUNT;
+}
+
+void init_descriptors(dma_descriptor *base, uint32_t buffer_size, uint8_t *buffer_base, uint32_t num_descriptors)
+{
+    uint8_t *curr_buffer = buffer_base;
+    for (int i = 0; i < num_descriptors; i++)
+    {
+        base[i].buffer_address = virt_to_phys(curr_buffer);
+        curr_buffer += buffer_size;
+    }
+}
+
+void print_descriptors(dma_descriptor *base, int count)
+{
+    for (int i = 0; i < count; i++)
+    {
+        pr_info("Descriptor base = %x,\n", base[i].buffer_address);
+    }
+}
+
+void init_alloc(void)
+{
+    mem = kmalloc(TOTAL_MEM , GFP_KERNEL);
+    memset(mem, 0, TOTAL_MEM);
+    tx_desc = (dma_descriptor *)((char *)mem + TX_DESC_MEM_OFFSET);
+    rx_desc = (dma_descriptor *)((char *)mem + RX_DESC_MEM_OFFSET);
+    tx_packet_buff = (char *)((char *)mem + TX_BUFFER_OFFSET);
+    rx_packet_buff = (char *)((char *)mem + RX_BUFFER_OFFSET);
+
+    pr_info("Allocated %ld bytes at address %p", TOTAL_MEM, (char *)mem);
+    pr_info("Address details:\n");
+    pr_info("Address reg_base: %x\n", (uint64_t)reg_base);
+    pr_info("Address tx_desc: %x\n", ((uint64_t)tx_desc));
+    pr_info("Address tx_desc:- %x\n", (((uint64_t)mem + 4096)));
+    pr_info("Address rx_desc: %x\n", (uint64_t)rx_desc);
+    pr_info("Address tx_packet_buff: %x\n", (uint64_t)tx_packet_buff);
+    pr_info("Address rx_packet_buff: %x\n", (uint64_t)rx_packet_buff);
+}
+
+void reset_device(void)
+{
+    init_alloc();
+    init_descriptors(tx_desc, MTU, tx_packet_buff, DESC_COUNT);
+    init_descriptors(rx_desc, MTU, tx_packet_buff, DESC_COUNT);
+    print_descriptors(tx_desc, DESC_COUNT);
+    print_descriptors(rx_desc, DESC_COUNT);
+    reset_desc_registers();
+}
+
 static int net_open(struct net_device* sndev )
 {
     return 0;
@@ -99,7 +206,7 @@ static int net_dev_probe(struct platform_device *pdev)
     platform_set_drvdata(pdev, net_pdev);
 
     res = platform_get_resource(pdev, IORESOURCE_MEM,0);
-    priv->reg_base = (void __iomem *)res->start;//devm_ioremap_resource(&pdev->dev,res);
+    priv->reg_base = (void __iomem *)phys_to_virt(res->start);//devm_ioremap_resource(&pdev->dev,res);
     printk(KERN_INFO "io base : %x",priv->reg_base);
     if(IS_ERR(priv->reg_base))
     {
@@ -107,6 +214,9 @@ static int net_dev_probe(struct platform_device *pdev)
         return PTR_ERR(priv->reg_base);
     }
     printk(KERN_INFO "io base : %x",priv->reg_base);
+    reg_base = (uint32_t*)priv->reg_base;
+    printk(KERN_INFO " reg_base %x", reg_base);
+    reset_device();
     net_pdev->netdev_ops = &net_ops;
     priv->ndev = net_pdev;
     eth_hw_addr_random(net_pdev);
