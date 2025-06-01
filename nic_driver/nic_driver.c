@@ -3,10 +3,10 @@
 #include "registers.h"
 #include <linux/module.h>
 #include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/device.h>
-#include <linux/kdev_t.h>
-#include <linux/uaccess.h>
+//#include <linux/cdev.h>
+//#include <linux/device.h>
+//#include <linux/kdev_t.h>
+//#include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <linux/gfp.h>
 #include <linux/string.h>
@@ -24,6 +24,9 @@
 #include <linux/delay.h>
 
 struct net_device *net_pdev;
+static struct workqueue_struct *nic_wq;
+static struct delayed_work nic_poll_work;
+
 struct pndev_priv{
     void __iomem *reg_base;
     int tx_irq;
@@ -136,14 +139,37 @@ void reset_device(void)
     print_descriptors(rx_desc, DESC_COUNT);
     reset_desc_registers();
 }
+static void nic_polling_function(struct work_struct *work)
+{
+    //todo implement polling logic
+
+}
 
 static int net_open(struct net_device* sndev )
 {
+    sndev->flags != IFF_UP;
+    netif_start_queue(sndev);
+    nic_wq = create_singlethread_workqueue(DRIVER_WORKQUEUE);
+    if(!nic_wq)
+    {
+        printk(KERN_ERR "cant create work queue in driver");
+        return -ENOMEM;
+    }
+    INIT_DELAYED_WORK(&nic_poll_work, nic_polling_function);
+    queue_delayed_work(nic_wq, &nic_poll_work, msecs_to_jiffies(DEFAULT_TIMER));
+    printk(KERN_INFO "nic open completed");
     return 0;
 }
 
 static int net_close(struct net_device* sndev)
 {
+    netif_stop_queue(sndev);
+    if(nic_wq)
+    {
+        cancel_delayed_work_sync(&nic_poll_work);
+        destroy_workqueue(nic_wq);
+    }
+    printk(KERN_INFO "nic driver closed");
     return 0;
 }
 
@@ -160,15 +186,7 @@ static const struct net_device_ops net_ops = {
 
 static void net_dev_setup(struct net_device *ndev)
 {
-    /*printk(KERN_INFO "setting up network device");
-    static char ndev_mac_addr ;// todo get this from device
-    ndev->netdev_ops = &net_ops;
-    ndev->addr_len = ETH_ALEN;
-    ndev->type = ARPHRD_ETHER;
-    eth_hw_addr_set(ndev, ndev_mac_addr);
-    ndev->mtu = MTU;
-    ndev->flags |= IFF_BROADCAST | IFF_MULTICAST;
-    printk(KERN_INFO "Net device setup complete");*/
+
 }
 
 static int init_net_device(void)
@@ -217,24 +235,25 @@ static int net_dev_probe(struct platform_device *pdev)
     reg_base = (uint32_t*)priv->reg_base;
     printk(KERN_INFO " reg_base %x", reg_base);
     reset_device();
+    printk(KERN_INFO "registering device");
     net_pdev->netdev_ops = &net_ops;
     priv->ndev = net_pdev;
     eth_hw_addr_random(net_pdev);
     int err = register_netdev(net_pdev);
-    if(!err)
-    {
+    printk(KERN_ERR "err_val %d",err);
+    int x = 0;
+    if(err != 0)
+    {   
+        printk(KERN_ERR "error in registration of network device in the driver");
+        x = 1;
         return err;
     }
-    printk(KERN_INFO "network device registered successfully");
+    printk(KERN_INFO "network device registered successfully, xval = %d",x);
     return 0;
 }
 
 static int net_dev_remove(struct platform_device *pdev)
 {
-   // struct net_device *ndev = platform_get_drvdata(pdev);
-  //  struct vnic_priv *priv = netdev_priv(ndev);
-
-  //  unregister_netdev(ndev);
     struct net_device *ndev = platform_get_drvdata(pdev);
     unregister_netdev(ndev);
     return 0;
@@ -249,16 +268,6 @@ static struct platform_driver plat_ndev_driver = {
     }
 };
 
-/*static int __init plat_ndev_driver_init(void)
-{
-    platform_driver_register(&plat_ndev_driver);
-    return 0;
-    
-}
-static void __exit plat_ndev_driver_exit(void)
-{
-
-}*/
 module_platform_driver(plat_ndev_driver);
 MODULE_AUTHOR("viveksg");
 MODULE_LICENSE("GPL");

@@ -29,4 +29,5 @@
 #define TX_BUFFER_OFFSET (RX_DESC_MEM_OFFSET + RX_DESC_MEM)
 #define RX_BUFFER_OFFSET (TX_BUFFER_OFFSET + TX_BUFFER_MEM)
 #define ETH_ALEN 6
+#define DRIVER_WORKQUEUE "driver_workqueue"
 #endif

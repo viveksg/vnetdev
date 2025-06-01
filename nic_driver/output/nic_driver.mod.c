@@ -35,7 +35,13 @@ MODULE_INFO(retpoline, "Y");
 
 static const struct modversion_info ____versions[]
 __used __section("__versions") = {
+	{ 0xc6f46339, "init_timer_key" },
+	{ 0xb2fcb56d, "queue_delayed_work_on" },
 	{ 0x122c3a7e, "_printk" },
+	{ 0x2cd5d0e1, "platform_driver_unregister" },
+	{ 0x15ba50a6, "jiffies" },
+	{ 0x9fa7184a, "cancel_delayed_work_sync" },
+	{ 0x8c03d20c, "destroy_workqueue" },
 	{ 0x7cd8d75e, "page_offset_base" },
 	{ 0x69acdf38, "memcpy" },
 	{ 0x4c9d28b0, "phys_base" },
@@ -51,11 +57,12 @@ __used __section("__versions") = {
 	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0x9e07cb93, "__platform_driver_register" },
 	{ 0x2f99106c, "unregister_netdev" },
-	{ 0x2cd5d0e1, "platform_driver_unregister" },
+	{ 0x49cd25ed, "alloc_workqueue" },
+	{ 0xffeedf6a, "delayed_work_timer_fn" },
 	{ 0xb2b23fc2, "module_layout" },
 };
 
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "77968E4F4322E2DC34C1328");
+MODULE_INFO(srcversion, "6C3B7F109E15EBE037CDD46");
