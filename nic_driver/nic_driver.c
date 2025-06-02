@@ -91,6 +91,9 @@ void reset_desc_registers(void)
     reg_base[REG_TX_TDH] = 0;
     reg_base[REG_TX_TDT] = 0;
     reg_base[REG_TX_TDLEN] = DESC_COUNT;
+
+    //enable device
+    reg_base[REG_DEVICE_STATUS] = DEVICE_STATUS_ENABLED;
 }
 
 void init_descriptors(dma_descriptor *base, uint32_t buffer_size, uint8_t *buffer_base, uint32_t num_descriptors)
@@ -139,10 +142,26 @@ void reset_device(void)
     print_descriptors(rx_desc, DESC_COUNT);
     reset_desc_registers();
 }
+static void process_receive_buffers()
+{
+    if(reg_base[REG_RX_TAIL] != reg_base[REG_RX_HEAD])
+    {
+        int qlen = DESC_COUNT;
+        int tail = reg_base[REG_RX_TAIL];
+        int head = reg_base[REG_RX_HEAD];
+        dma_descriptor *base = (dma_descriptor *)(void*)(((uint64_t)reg_base[REG_RX_RDBAH] << 32) | reg_base[REG_RX_RDBAL]);
+        for(int i = tail; i <= head; i = (i + 1)%qlen)
+        {
+            //add logic to assemble packet
+        }
+        reg_base[REG_RX_TAIL] = head;
+    }
+}
+
 static void nic_polling_function(struct work_struct *work)
 {
-    //todo implement polling logic
-
+   process_receive_buffers();
+   queue_delayed_work(nic_wq,&nic_poll_work,msec_to_jiffies(DEFAULT_TIMER));
 }
 
 static int net_open(struct net_device* sndev )

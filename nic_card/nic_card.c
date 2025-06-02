@@ -110,6 +110,7 @@ void register_plat_device(void)
 void reset_device(void)
 {
     init_alloc();
+    reg_base[REG_DEVICE_STATUS] = DEVICE_STATUS_DISABLED;
     register_plat_device();
 }
 
@@ -138,6 +139,9 @@ loff_t ndev_lseek(struct file *file_p, loff_t curr_off, int whence)
 
 ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *fpos)
 {
+
+    if(reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
+        return 0;
     if (*fpos + count > DEVICE_MEM)
         count = DEVICE_MEM - (*fpos);
 
@@ -154,6 +158,8 @@ ssize_t ndev_write(struct file *filep, const char __user *buff, size_t count, lo
 {
    // if (*fpos + count > DEVICE_MEM)
      //   count = DEVICE_MEM - (*fpos);
+    if(reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
+        return 0;
     if (!count)
     {
         pr_err("Chip module: No memory \n");
