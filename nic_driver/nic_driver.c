@@ -23,6 +23,8 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 
+#undef pr_fmt
+#define pr_fmt(fmt) "%s : " fmt, __func__
 struct net_device *net_pdev;
 static struct workqueue_struct *nic_wq;
 static struct delayed_work nic_poll_work;
@@ -34,6 +36,8 @@ struct pndev_priv{
     struct net_device *ndev;
 };
 
+uint8_t temp_rx_buffer[DEVICE_MEM];
+
 dma_descriptor *tx_desc;
 dma_descriptor *rx_desc;
 uint32_t *reg_base;
@@ -41,7 +45,7 @@ uint8_t *tx_packet_buff;
 uint8_t *rx_packet_buff;
 uint8_t *mem;
 
-int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction)
+int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction, dma_descriptor_fields fields)
 {
     uint16_t qtail = reg_base[qtail_ind];
     uint16_t qhead = reg_base[qhead_ind];
@@ -55,6 +59,7 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
         }
         pr_info("Attempting to insert packet in queue\n");
         uint8_t *qbuffer = phys_to_virt(qbase[qtail].buffer_address);
+        qbase[qtail].status |= fields.status;
         if (op_direction == COPY_FROM_QUEUE)
             memcpy(buff, qbuffer, qbase[qtail].length);
         else
@@ -77,20 +82,22 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
 
 void reset_desc_registers(void)
 {
-    uint64_t tx_base = (uint64_t)((void *)tx_desc);
-    uint64_t rx_base = (uint64_t)((void *)rx_desc);
+    uint64_t tx_base = virt_to_phys(tx_desc);
+    uint64_t rx_base = virt_to_phys(rx_desc);
 
-    reg_base[REG_RX_RDBAL] = rx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
+    reg_base[REG_RX_RDBAL] = (rx_base & 0xFFFFFFFF);
     reg_base[REG_RX_RDBAH] = rx_base >> 32;
     reg_base[REG_RX_HEAD] = 0;
     reg_base[REG_RX_TAIL] = 0;
     reg_base[REG_RX_RDLEN] = DESC_COUNT;
 
-    reg_base[REG_TX_TBAL] = tx_base & (~(((uint64_t)(0xFFFFFFFF)) << 32));
+    reg_base[REG_TX_TBAL] = (tx_base & 0xFFFFFFFF);
     reg_base[REG_TX_TBAH] = tx_base >> 32;
     reg_base[REG_TX_TDH] = 0;
     reg_base[REG_TX_TDT] = 0;
     reg_base[REG_TX_TDLEN] = DESC_COUNT;
+    printk(KERN_INFO "tx base : %x, reg_al: %x, reg_ax: %x",tx_base,reg_base[REG_TX_TBAL],reg_base[REG_TX_TBAH]);
+    printk(KERN_INFO "rx base : %x, reg_al: %x, reg_ax: %x",rx_base,reg_base[REG_RX_RDBAL],reg_base[REG_RX_RDBAH]);
 
     //enable device
     reg_base[REG_DEVICE_STATUS] = DEVICE_STATUS_ENABLED;
@@ -110,7 +117,7 @@ void print_descriptors(dma_descriptor *base, int count)
 {
     for (int i = 0; i < count; i++)
     {
-        pr_info("Descriptor base = %x,\n", base[i].buffer_address);
+        pr_info("Descriptor base virtual= %x, physical = %x,\n", phys_to_virt(base[i].buffer_address), base[i].buffer_address);
     }
 }
 
@@ -142,17 +149,54 @@ void reset_device(void)
     print_descriptors(rx_desc, DESC_COUNT);
     reset_desc_registers();
 }
-static void process_receive_buffers()
+
+void send_packet_to_protocol_stack(uint8_t* packet_data, uint32_t len)
+{   
+    pr_info("Attempting to send packet to protocol stack");
+    struct sk_buff* skbuff;
+    struct ethhdr* header;
+    skbuff = netdev_alloc_skb(net_pdev,len);
+    if(!skbuff)
+    {
+        pr_err("cannot allocate sk_buff");
+        return;
+    }
+    skb_reserve(skbuff,2);
+    memcpy(skb_put(skbuff,len),packet_data,len);
+    header = (struct ethhdr *)skb_push(skbuff,sizeof(struct ethhdr));
+    header->h_proto = htons(ETH_P_IP);
+    skbuff->dev = net_pdev;
+    skbuff->protocol = htons(ETH_P_IP);
+    netif_rx(skbuff);
+    pr_info("Packet transferred");
+    reg_base[REG_RX_GOOD_PACKETS]++;
+}
+
+static void process_receive_buffers(void)
 {
     if(reg_base[REG_RX_TAIL] != reg_base[REG_RX_HEAD])
     {
         int qlen = DESC_COUNT;
         int tail = reg_base[REG_RX_TAIL];
         int head = reg_base[REG_RX_HEAD];
-        dma_descriptor *base = (dma_descriptor *)(void*)(((uint64_t)reg_base[REG_RX_RDBAH] << 32) | reg_base[REG_RX_RDBAL]);
-        for(int i = tail; i <= head; i = (i + 1)%qlen)
-        {
-            //add logic to assemble packet
+        dma_descriptor *base = (dma_descriptor *)phys_to_virt(((uint64_t)reg_base[REG_RX_RDBAH] << 32) | reg_base[REG_RX_RDBAL]);
+        uint32_t buffer_idx = 0;
+        pr_info("qhead = %x, qtail = %x",head,tail);
+        pr_info("reg_ah %x, reg_al %x, computed base %x ", reg_base[REG_RX_RDBAH], reg_base[REG_RX_RDBAL],base);
+       // printk(KERN_INFO," buffer_addr %x, phys addr %x",buffer_addr,base[i].buffer_address);
+         for(int i = head; i != tail; i = (i + 1)%qlen)
+        {   
+
+            uint8_t* buffer_addr = (uint8_t*)phys_to_virt(base[i].buffer_address);
+            pr_info(" buffer_addr %x, phys addr %x",buffer_addr,base[i].buffer_address);
+            pr_info("buffer_length = %x, status  = %d, status_check = %d,buffer_idx = %d", base[i].length, base[i].status,((base[i].status & RX_STATUS_ENABLE_EOP) ==RX_STATUS_ENABLE_EOP),buffer_idx);
+            memcpy(&temp_rx_buffer[buffer_idx],buffer_addr,base[i].length);
+            buffer_idx += base[i].length;
+            if((base[i].status & RX_STATUS_ENABLE_EOP) ==RX_STATUS_ENABLE_EOP)
+            {
+              send_packet_to_protocol_stack(temp_rx_buffer,buffer_idx);
+              buffer_idx = 0;
+            }
         }
         reg_base[REG_RX_TAIL] = head;
     }
@@ -161,7 +205,7 @@ static void process_receive_buffers()
 static void nic_polling_function(struct work_struct *work)
 {
    process_receive_buffers();
-   queue_delayed_work(nic_wq,&nic_poll_work,msec_to_jiffies(DEFAULT_TIMER));
+   queue_delayed_work(nic_wq,&nic_poll_work,msecs_to_jiffies(DEFAULT_TIMER));
 }
 
 static int net_open(struct net_device* sndev )
@@ -201,6 +245,7 @@ static const struct net_device_ops net_ops = {
     .ndo_open = net_open,
     .ndo_stop = net_close,
     .ndo_start_xmit = net_xmit
+
 };
 
 static void net_dev_setup(struct net_device *ndev)
@@ -271,7 +316,7 @@ static int net_dev_probe(struct platform_device *pdev)
     return 0;
 }
 
-static int net_dev_remove(struct platform_device *pdev)
+static int  net_dev_remove(struct platform_device *pdev)
 {
     struct net_device *ndev = platform_get_drvdata(pdev);
     unregister_netdev(ndev);

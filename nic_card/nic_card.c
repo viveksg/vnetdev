@@ -16,23 +16,23 @@
 #include "nic_card.h"
 #undef pr_fmt
 #define pr_fmt(fmt) "%s : " fmt, __func__
-#define DEVICE_MEM 8096
-char device_buffer[DEVICE_MEM];
+uint8_t device_buffer[DEVICE_MEM];
 dev_t ndev_num;
 struct cdev ndev;
 struct class *ndev_class;
 struct device *ndevice;
 uint8_t *mem;
-uint32_t * reg_base;
+uint32_t *reg_base;
 static struct platform_device *npdev;
 
 dma_descriptor *tx_desc;
 dma_descriptor *rx_desc;
-int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction)
+int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction, dma_descriptor_fields fields)
 {
     uint16_t qtail = reg_base[qtail_ind];
     uint16_t qhead = reg_base[qhead_ind];
-    pr_info("queue head %d, queue_tail %d\n",qhead,qtail);
+    pr_info("queue head %d, queue_tail %d\n", qhead, qtail);
+    pr_info("queue base %x",qbase);
     if (op == QUEUE_OP_ENQUEUE)
     {
         if ((qtail + 1) % qsize == qhead)
@@ -42,13 +42,15 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
         }
         pr_info("Attempting to insert packet in queue\n");
         uint8_t *qbuffer = phys_to_virt(qbase[qtail].buffer_address);
+        pr_info("queue buffer %x",qbuffer);
+        qbase[qtail].status |= fields.status;
         if (op_direction == COPY_FROM_QUEUE)
             memcpy(buff, qbuffer, qbase[qtail].length);
         else
         {
             memcpy(qbuffer, buff, buff_len);
             qbase[qtail].length = buff_len;
-                qtail = (qtail + 1) % qsize;
+            qtail = (qtail + 1) % qsize;
         }
     }
     else
@@ -73,38 +75,35 @@ void register_plat_device(void)
 {
     phys_addr_t mem_phys = 0;
     mem_phys = virt_to_phys(mem);
-    struct resource mem_res[]={
-        {
-            .start = mem_phys,
-            .end = mem_phys + REG_MEM_SIZE,
-            .flags = IORESOURCE_MEM,
-            .name = RES_NAME_REG_BASE
-        }
-    };
-    npdev = platform_device_alloc(PLAT_DEVICE_NAME,-1);
-    if(!npdev)
+    struct resource mem_res[] = {
+        {.start = mem_phys,
+         .end = mem_phys + REG_MEM_SIZE,
+         .flags = IORESOURCE_MEM,
+         .name = RES_NAME_REG_BASE}};
+    npdev = platform_device_alloc(PLAT_DEVICE_NAME, -1);
+    if (!npdev)
     {
         pr_info("platfrom device allocation failed");
         goto free_mem;
     }
-    int res_status = platform_device_add_resources(npdev,mem_res,ARRAY_SIZE(mem_res));
-    if(res_status)
+    int res_status = platform_device_add_resources(npdev, mem_res, ARRAY_SIZE(mem_res));
+    if (res_status)
     {
         pr_info("adding memory address resource to platrom device failed");
         goto put_dev;
     }
     int add_status = platform_device_add(npdev);
-    if(add_status)
+    if (add_status)
     {
         pr_info("adding the platform device failed");
         goto put_dev;
     }
     pr_info("platform device added");
     return;
-    put_dev:
-        platform_device_put(npdev);
-    free_mem:
-        kfree(mem);
+put_dev:
+    platform_device_put(npdev);
+free_mem:
+    kfree(mem);
 }
 
 void reset_device(void)
@@ -140,7 +139,7 @@ loff_t ndev_lseek(struct file *file_p, loff_t curr_off, int whence)
 ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *fpos)
 {
 
-    if(reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
+    if (reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
         return 0;
     if (*fpos + count > DEVICE_MEM)
         count = DEVICE_MEM - (*fpos);
@@ -156,9 +155,10 @@ ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *f
 
 ssize_t ndev_write(struct file *filep, const char __user *buff, size_t count, loff_t *fpos)
 {
-   // if (*fpos + count > DEVICE_MEM)
-     //   count = DEVICE_MEM - (*fpos);
-    if(reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
+    // if (*fpos + count > DEVICE_MEM)
+    //   count = DEVICE_MEM - (*fpos);
+    rx_desc = (dma_descriptor*)((phys_to_virt)((uint64_t)reg_base[REG_RX_RDBAH] << 32 | reg_base[REG_RX_RDBAL]));
+    if (reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
         return 0;
     if (!count)
     {
@@ -169,10 +169,41 @@ ssize_t ndev_write(struct file *filep, const char __user *buff, size_t count, lo
     {
         return -EFAULT;
     }
-    if(queue_op(QUEUE_OP_ENQUEUE, rx_desc, REG_RX_HEAD, REG_RX_TAIL, DESC_COUNT, device_buffer, count, 0) == QUEUE_FULL)
+
+    dma_descriptor_fields temp;
+    if (count > SINGLE_BUFFER_MEM)
     {
-        pr_info("Queue full dropping packet\n");
-        return -ENOMEM;
+        int num_queue_ops = count / SINGLE_BUFFER_MEM + (count % SINGLE_BUFFER_MEM > 0 ? 1 : 0);
+        int offset = 0;
+        int byte_count = 0;
+        int remaining_bits = count;
+        for (int i = 0; i < num_queue_ops; i++, remaining_bits = remaining_bits - SINGLE_BUFFER_MEM, offset += SINGLE_BUFFER_MEM)
+        {
+            if(remaining_bits > SINGLE_BUFFER_MEM)
+            {
+                byte_count = SINGLE_BUFFER_MEM;
+                temp.status = 0;
+            }
+            else
+            {
+                byte_count = remaining_bits;
+                temp.status = RX_STATUS_ENABLE_EOP;
+            }
+            if (queue_op(QUEUE_OP_ENQUEUE, rx_desc, REG_RX_HEAD, REG_RX_TAIL, DESC_COUNT, &device_buffer[offset], count, 0, temp) == QUEUE_FULL)
+            {
+                pr_info("Queue full dropping packet\n");
+                return -ENOMEM;
+            }
+        }
+    }
+    else
+    {   
+        temp.status = RX_STATUS_ENABLE_EOP;
+        if (queue_op(QUEUE_OP_ENQUEUE, rx_desc, REG_RX_HEAD, REG_RX_TAIL, DESC_COUNT, device_buffer, count, 0,temp) == QUEUE_FULL)
+        {
+            pr_info("Queue full dropping packet\n");
+            return -ENOMEM;
+        }
     }
     *fpos += count;
     pr_info("Write bytes = %zu\n", count);

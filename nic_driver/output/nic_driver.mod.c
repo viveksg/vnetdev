@@ -53,6 +53,12 @@ __used __section("__versions") = {
 	{ 0xcf8ab1e3, "dev_addr_mod" },
 	{ 0x5029ec4, "register_netdev" },
 	{ 0xf0fdf6cb, "__stack_chk_fail" },
+	{ 0xd2b00e8d, "__netdev_alloc_skb" },
+	{ 0x435a3709, "skb_put" },
+	{ 0x4b5f959d, "skb_push" },
+	{ 0x855c4551, "netif_rx" },
+	{ 0xcbd4898c, "fortify_panic" },
+	{ 0x87a21cb3, "__ubsan_handle_out_of_bounds" },
 	{ 0xbdfb6dbb, "__fentry__" },
 	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0x9e07cb93, "__platform_driver_register" },
@@ -65,4 +71,4 @@ __used __section("__versions") = {
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "6C3B7F109E15EBE037CDD46");
+MODULE_INFO(srcversion, "667F1E5FAC609DCC96BC75F");
