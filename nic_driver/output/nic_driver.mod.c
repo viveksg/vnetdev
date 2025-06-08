@@ -60,8 +60,8 @@ __used __section("__versions") = {
 	{ 0xcbd4898c, "fortify_panic" },
 	{ 0x87a21cb3, "__ubsan_handle_out_of_bounds" },
 	{ 0xbdfb6dbb, "__fentry__" },
-	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0x9e07cb93, "__platform_driver_register" },
+	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0x2f99106c, "unregister_netdev" },
 	{ 0x49cd25ed, "alloc_workqueue" },
 	{ 0xffeedf6a, "delayed_work_timer_fn" },
@@ -71,4 +71,4 @@ __used __section("__versions") = {
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "667F1E5FAC609DCC96BC75F");
+MODULE_INFO(srcversion, "7BF9F2F75AF4B1776362EE9");
