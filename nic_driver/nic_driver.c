@@ -266,13 +266,13 @@ static netdev_tx_t net_xmit(struct sk_buff *sbuff, struct net_device *sndev)
                 fields.status |= TX_STATUS_ENABLE_EOP;
                 transfer_len = buff_len - offset;
             }
-            queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, qhead, qtail, DESC_COUNT, &(sbuff->data[offset]), transfer_len, 0, fields);
+            queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, REG_TX_TDH, REG_TX_TDT, DESC_COUNT, &(sbuff->data[offset]), transfer_len, 0, fields);
         }
     }
     else
     {
         fields.status |= TX_STATUS_ENABLE_EOP;
-        queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, qhead, qtail, DESC_COUNT, sbuff->data, sbuff->len, 0, fields);
+        queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc,REG_TX_TDH, REG_TX_TDT, DESC_COUNT, sbuff->data, sbuff->len, 0, fields);
     }
     if (queue_op_status == QUEUE_OP_SUCCESS)
     {

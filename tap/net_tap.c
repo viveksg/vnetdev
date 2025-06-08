@@ -121,5 +121,7 @@ int main(void)
     }
     pthread_create(&tx_thread, NULL, tx_task, NULL);
     pthread_join(tx_thread, NULL);
+    pthread_create(&rx_thread, NULL, rx_task, NULL);
+    pthread_join(rx_thread, NULL);
     return 0;
 }

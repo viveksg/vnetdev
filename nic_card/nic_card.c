@@ -14,19 +14,27 @@
 #include <linux/ioport.h>
 #include "registers.h"
 #include "nic_card.h"
+#include <linux/workqueue.h>
+#include <linux/delay.h>
+
 #undef pr_fmt
 #define pr_fmt(fmt) "%s : " fmt, __func__
 uint8_t device_buffer[DEVICE_MEM];
+uint8_t device_tx_buffer[DEVICE_MEM];
 dev_t ndev_num;
 struct cdev ndev;
 struct class *ndev_class;
 struct device *ndevice;
 uint8_t *mem;
 uint32_t *reg_base;
+uint32_t packet_status = PACKET_NOT_READY;
 static struct platform_device *npdev;
 
 dma_descriptor *tx_desc;
 dma_descriptor *rx_desc;
+static struct workqueue_struct *tx_poll_queue;
+static struct delayed_work tx_poll_work;
+
 int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qtail_ind, uint32_t qsize, uint8_t *buff, uint16_t buff_len, int op_direction, dma_descriptor_fields fields)
 {
     uint16_t qtail = reg_base[qtail_ind];
@@ -136,17 +144,23 @@ loff_t ndev_lseek(struct file *file_p, loff_t curr_off, int whence)
     return file_p->f_pos;
 }
 
+/**
+ * todo: corner case to handle if buffer is not fully read and pollling function updates the buffer
+ */
 ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *fpos)
 {
 
     if (reg_base[REG_DEVICE_STATUS] == DEVICE_STATUS_DISABLED)
         return 0;
+    if(packet_status == PACKET_NOT_READY)
+        return 0;
+
     if (*fpos + count > DEVICE_MEM)
         count = DEVICE_MEM - (*fpos);
 
-    if (copy_to_user(buff, &device_buffer[*fpos], count))
+    if (copy_to_user(buff, &device_tx_buffer[*fpos], count))
         return -EFAULT;
-
+    packet_status = PACKET_NOT_READY;
     *fpos += count;
     pr_info("Read %n bytes = %zu\n", count);
     pr_info("Updated file position %lld\n", fpos);
@@ -229,11 +243,44 @@ struct file_operations ndev_ops = {
     .owner = THIS_MODULE
 };
 
+static void transmit_polling_function(struct work_struct *work)
+{
+    if (packet_status == PACKET_NOT_READY)
+    {  
+        pr_info("settup up packet buffer for transfer");
+        uint32_t qhead = reg_base[REG_TX_TDH];
+        uint32_t qtail = reg_base[REG_TX_TDT];
+        uint32_t qsize = DESC_COUNT;
+        dma_descriptor *qbase = (dma_descriptor *)phys_to_virt(((uint64_t)reg_base[REG_TX_TBAH] << 32) | reg_base[REG_TX_TBAL]);
+        if (qhead != qtail)
+        {
+            pr_info("qhead = %x qtail = %x",qhead,qtail);
+            int offset = 0;
+           int i = 0; 
+           for (i = qhead; i != qtail; i = (i+1)%qsize)
+            {
+                uint8_t *buffer_addr = (uint8_t *)phys_to_virt(qbase[i].buffer_address);
+                memcpy(&device_tx_buffer[offset], buffer_addr, qbase[i].length);
+                offset += qbase[i].length;
+                if ((qbase[i].status & TX_STATUS_ENABLE_EOP) == TX_STATUS_ENABLE_EOP)
+                {  
+                    pr_info("packer buffer ready");
+                    packet_status = PACKET_READY;
+                    reg_base[REG_TX_TDH] = i;
+                    break;
+                }
+            }
+        }
+    }
+    queue_delayed_work(tx_poll_queue,&tx_poll_work,msecs_to_jiffies(DEFAULT_TIMER));
+}
+
 static int __init chip_init(void)
 {
 
     int init_status;
     reset_device();
+    
     init_status = alloc_chrdev_region(&ndev_num, 0, 1, "plat_net_dev");
     if (init_status < 0)
     {
@@ -263,6 +310,15 @@ static int __init chip_init(void)
         init_status = PTR_ERR(ndevice);
         goto ndev_class_del;
     }
+
+    tx_poll_queue = create_singlethread_workqueue(CARD_WORKQUEUE);
+    if(!tx_poll_queue)
+    {
+        pr_err("Cannot create card workqueue");
+        return -ENOMEM;
+    }
+    INIT_DELAYED_WORK(&tx_poll_work, transmit_polling_function);
+    queue_delayed_work(tx_poll_queue,&tx_poll_work,msecs_to_jiffies(DEFAULT_TIMER));
     pr_info("Module init successful \n");
     return 0;
 ndev_class_del:
@@ -281,6 +337,12 @@ out:
 
 static void __exit chip_close(void)
 {
+
+    if(tx_poll_queue)
+    {
+        cancel_delayed_work_sync(&tx_poll_work);
+        destroy_workqueue(tx_poll_queue);
+    }
     device_destroy(ndev_class, ndev_num);
     class_destroy(ndev_class);
     cdev_del(&ndev);

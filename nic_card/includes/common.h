@@ -32,6 +32,7 @@
 #define RX_BUFFER_OFFSET (TX_BUFFER_OFFSET + TX_BUFFER_MEM)
 #define ETH_ALEN 6
 #define DRIVER_WORKQUEUE "driver_workqueue"
+#define CARD_WORKQUEUE "card_workqueue"
 #define DEVICE_STATUS_DISABLED 0
 #define DEVICE_STATUS_ENABLED 0xFFFF
 
@@ -39,4 +40,13 @@
 #define RX_STATUS_ENABLE_DD 0x01
 #define RX_EOP_MASK 0xFD
 #define RX_DD_MASK 0xFE
+
+
+#define TX_STATUS_ENABLE_EOP 0x02
+#define TX_STATUS_ENABLE_DD 0x01
+#define TX_EOP_MASK 0xFD
+#define TX_DD_MASK 0xFE
+
+#define PACKET_NOT_READY 1001
+#define PACKET_READY 1002
 #endif
