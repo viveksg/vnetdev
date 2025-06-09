@@ -26,9 +26,9 @@ void *tx_task(void *arg)
 
     while (1)
     {
-        pthread_mutex_lock(&tap_fd_lock);
-        pthread_mutex_lock(&nic_dev_lock);
-        pthread_mutex_lock(&tx_buffer_lock);
+       // pthread_mutex_lock(&tap_fd_lock);
+       // pthread_mutex_lock(&nic_dev_lock);
+       // pthread_mutex_lock(&tx_buffer_lock);
         int nread = read(tap_fd, tap_tx_buffer, BUFFER_SIZE);
 
         if (nread > 0)
@@ -44,9 +44,9 @@ void *tx_task(void *arg)
             // printf("%c", tap_tx_buffer[i]);
             printf("-----------------xxxxxxx--------------------------");
         }
-        pthread_mutex_unlock(&tx_buffer_lock);
-        pthread_mutex_unlock(&nic_dev_lock);
-        pthread_mutex_unlock(&tap_fd_lock);
+      //  pthread_mutex_unlock(&tx_buffer_lock);
+       // pthread_mutex_unlock(&nic_dev_lock);
+       // pthread_mutex_unlock(&tap_fd_lock);
     }
 }
 
@@ -54,17 +54,27 @@ void *rx_task(void *arg)
 {
     while(1)
     {
-        pthread_mutex_lock(&tap_fd_lock);
-        pthread_mutex_lock(&nic_dev_lock);
-        pthread_mutex_lock(&rx_buffer_lock);
+        //pthread_mutex_lock(&tap_fd_lock);
+       // pthread_mutex_lock(&nic_dev_lock);
+       // pthread_mutex_lock(&rx_buffer_lock);
         int chip_read = read(chip_fd,tap_rx_buffer,BUFFER_SIZE);
         if(chip_read > 0)
         {
+
             write(tap_fd,tap_rx_buffer,BUFFER_SIZE);
+            printf("data read----->\n");
+            for(int i = 0; i < chip_read; i++)
+            {
+                unsigned char x= (unsigned char)tap_rx_buffer[i];
+                if(x == 0)
+                    continue;
+                printf("%02x ",x);
+            }
+            printf("\n---------------------\n");
         }
-        pthread_mutex_unlock(&rx_buffer_lock);
-        pthread_mutex_unlock(&nic_dev_lock);
-        pthread_mutex_unlock(&tap_fd_lock);
+        //pthread_mutex_unlock(&rx_buffer_lock);
+        //pthread_mutex_unlock(&nic_dev_lock);
+        //pthread_mutex_unlock(&tap_fd_lock);
         //usleep(1000);
     }
 }
@@ -103,7 +113,7 @@ int main(void)
         return -1;
     }
 
-    if ((chip_fd = open("/dev/ndevice", O_WRONLY)) < 0)
+    if ((chip_fd = open("/dev/ndevice", O_RDWR)) < 0)
     {
         perror("Cannot obtain net device fd\n");
         return -1;
@@ -117,11 +127,11 @@ int main(void)
     {
         perror("ioctl error");
         close(tap_fd);
-        return 0;
+        return -1;
     }
     pthread_create(&tx_thread, NULL, tx_task, NULL);
-    pthread_join(tx_thread, NULL);
     pthread_create(&rx_thread, NULL, rx_task, NULL);
+    pthread_join(tx_thread, NULL);
     pthread_join(rx_thread, NULL);
     return 0;
 }

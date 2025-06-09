@@ -158,12 +158,14 @@ ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *f
     if (*fpos + count > DEVICE_MEM)
         count = DEVICE_MEM - (*fpos);
 
-    if (copy_to_user(buff, &device_tx_buffer[*fpos], count))
+    if (copy_to_user(buff, &device_tx_buffer[0], count))
         return -EFAULT;
+    
+    pr_info("Requested file position %x\n", *fpos) ;  
     packet_status = PACKET_NOT_READY;
-    *fpos += count;
-    pr_info("Read %n bytes = %zu\n", count);
-    pr_info("Updated file position %lld\n", fpos);
+    *fpos = (*fpos + count)%DEVICE_MEM;
+    pr_info("Read %x bytes\n", count);
+    pr_info("Updated file position %x\n", *fpos);
     return count;
 }
 
@@ -254,17 +256,20 @@ static void transmit_polling_function(struct work_struct *work)
         dma_descriptor *qbase = (dma_descriptor *)phys_to_virt(((uint64_t)reg_base[REG_TX_TBAH] << 32) | reg_base[REG_TX_TBAL]);
         if (qhead != qtail)
         {
-            pr_info("qhead = %x qtail = %x",qhead,qtail);
+            pr_info("qhead = %x qtail = %x, qbase = %x",qhead,qtail,qbase);
             int offset = 0;
            int i = 0; 
            for (i = qhead; i != qtail; i = (i+1)%qsize)
             {
                 uint8_t *buffer_addr = (uint8_t *)phys_to_virt(qbase[i].buffer_address);
                 memcpy(&device_tx_buffer[offset], buffer_addr, qbase[i].length);
+                for(int j = offset; j < qbase[i].length;j++)
+                    pr_info("device_tx_buffer[%x] = %x",j,device_tx_buffer[j]);
+
                 offset += qbase[i].length;
                 if ((qbase[i].status & TX_STATUS_ENABLE_EOP) == TX_STATUS_ENABLE_EOP)
                 {  
-                    pr_info("packer buffer ready");
+                    pr_info("packet buffer ready");
                     packet_status = PACKET_READY;
                     reg_base[REG_TX_TDH] = i;
                     break;

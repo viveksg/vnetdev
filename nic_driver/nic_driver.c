@@ -266,20 +266,28 @@ static netdev_tx_t net_xmit(struct sk_buff *sbuff, struct net_device *sndev)
                 fields.status |= TX_STATUS_ENABLE_EOP;
                 transfer_len = buff_len - offset;
             }
+            for(int j = 0; j < sbuff->len;j++)
+            {
+                pr_info("byte %d , data = %c",j,sbuff->data[j]);
+            }
             queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, REG_TX_TDH, REG_TX_TDT, DESC_COUNT, &(sbuff->data[offset]), transfer_len, 0, fields);
         }
     }
     else
     {
+        for (int j = 0; j < sbuff->len; j++)
+        {
+            pr_info("byte %d , data = %c", j,sbuff->data[j]);
+        }
         fields.status |= TX_STATUS_ENABLE_EOP;
-        queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc,REG_TX_TDH, REG_TX_TDT, DESC_COUNT, sbuff->data, sbuff->len, 0, fields);
+        queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, REG_TX_TDH, REG_TX_TDT, DESC_COUNT, sbuff->data, sbuff->len, 0, fields);
     }
     if (queue_op_status == QUEUE_OP_SUCCESS)
     {
         qtail = (qtail + 1) % qsize;
         reg_base[REG_TX_TDT] = qtail;
+        pr_info("transmit packet added to the dma qhead = %d, qtail = %d", qhead, qtail);
     }
-    pr_info("transmit packet added to the dma qhead = %d, qtail = %d",qhead,qtail);
     return NETDEV_TX_OK;
 }
 
