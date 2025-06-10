@@ -33,6 +33,7 @@
 #define ETH_ALEN 6
 #define DRIVER_WORKQUEUE "driver_workqueue"
 #define CARD_WORKQUEUE "card_workqueue"
+#define DEFAULT_NETWORK_DEV_NAME "vnic%d"
 #define DEVICE_STATUS_DISABLED 0
 #define DEVICE_STATUS_ENABLED 0xFFFF
 
@@ -49,4 +50,7 @@
 
 #define PACKET_NOT_READY 1001
 #define PACKET_READY 1002
+
+#define MAC_ADDR_AL 0xAABBCCDD
+#define MAC_ADD_AH 0x00001122
 #endif

@@ -1,4 +1,4 @@
-#define NUM_REGISTERS 46
+#define NUM_REGISTERS 4096
 
 //general
 #define REG_DEVICE_CTRL 0
@@ -49,16 +49,19 @@
 #define REG_TX_TIDTV 36 // Transmit Interrupt Delay Timer
 
 //Address
+
+#define NUM_RECEIVE_ADDRESS 16
 #define REG_MTA 37// multicast table array
 #define REG_RAL 38 // Receive address low
-#define REG_RAH 39 // Receive address high
+#define REG_RAH 54 // Receive address high
 
 // Stats
-#define REG_TX_GOOD_PACKETS 40
-#define REG_RX_GOOD_PACKETS 41
-#define REG_TX_GOOD_OCTETS 42
-#define REG_RX_GOOD_OCTESTS 43
-#define REG_RX_PACKET_DROP 44
-#define REG_TX_PACKET_DROP 45
+#define REG_TX_GOOD_PACKETS 70
+#define REG_RX_GOOD_PACKETS 71
+#define REG_TX_GOOD_OCTETS 72
+#define REG_RX_GOOD_OCTESTS 73
+#define REG_RX_PACKET_DROP 74
+#define REG_TX_PACKET_DROP 75
+
 
 //uint32_t get_bytes(uint32_t shift, uint32_t length, uint32_t val);

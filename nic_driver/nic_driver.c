@@ -211,6 +211,7 @@ static int net_open(struct net_device *sndev)
 {
     sndev->flags != IFF_UP;
     netif_start_queue(sndev);
+    netif_carrier_on(sndev);
     nic_wq = create_singlethread_workqueue(DRIVER_WORKQUEUE);
     if (!nic_wq)
     {
@@ -225,7 +226,9 @@ static int net_open(struct net_device *sndev)
 
 static int net_close(struct net_device *sndev)
 {
+    netif_carrier_off(sndev);
     netif_stop_queue(sndev);
+
     if (nic_wq)
     {
         cancel_delayed_work_sync(&nic_poll_work);
@@ -320,6 +323,20 @@ static int init_net_device(void)
     return 0;
 }
 
+static void set_mac_address(struct net_device *ndev)
+{
+    uint32_t mac_lo = reg_base[REG_RAL];
+    uint32_t mac_hi = reg_base[REG_RAH];
+    uint8_t mac_addr[6];
+    mac_addr[0] = mac_lo & 0xFF;
+    mac_addr[1] = (mac_lo >> 8) & 0xFF;
+    mac_addr[2] = (mac_lo >> 16) & 0xFF;
+    mac_addr[3] = (mac_lo >> 24) & 0xFF;
+    mac_addr[4] = mac_hi & 0xFF;
+    mac_addr[5] = (mac_hi >> 8) & 0xFF;
+    memcpy(ndev->dev_addr,mac_addr,6);
+}
+
 static int net_dev_probe(struct platform_device *pdev)
 {
     printk("probe function called\n");
@@ -327,6 +344,7 @@ static int net_dev_probe(struct platform_device *pdev)
     struct pndev_priv *priv;
     struct resource *res;
     net_pdev = alloc_etherdev(sizeof(struct pndev_priv));
+    strncpy(net_pdev->name,DEFAULT_NETWORK_DEV_NAME,IFNAMSIZ);
     if (!net_pdev)
     {
         printk(KERN_ERR "allocation of nety device failed");
@@ -350,7 +368,8 @@ static int net_dev_probe(struct platform_device *pdev)
     printk(KERN_INFO "registering device");
     net_pdev->netdev_ops = &net_ops;
     priv->ndev = net_pdev;
-    eth_hw_addr_random(net_pdev);
+    //eth_hw_addr_random(net_pdev);
+    set_mac_address(net_pdev);
     int err = register_netdev(net_pdev);
     printk(KERN_ERR "err_val %d", err);
     int x = 0;

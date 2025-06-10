@@ -72,11 +72,17 @@ int queue_op(uint32_t op, dma_descriptor *qbase, uint32_t qhead_ind, uint32_t qt
     return QUEUE_OP_SUCCESS;
 }
 
+static void set_mac_address(uint32_t al, uint32_t ah, uint32_t reg_ioffset)
+{
+    reg_base[REG_RAH + reg_ioffset] = ah;
+    reg_base[REG_RAL + reg_ioffset] = al;
+}
 void init_alloc(void)
 {
     mem = kmalloc(REG_MEM_SIZE, GFP_KERNEL);
     memset(mem, 0, REG_MEM_SIZE);
     reg_base = (uint32_t *)mem;
+    set_mac_address(MAC_ADDR_AL,MAC_ADD_AH,0);
 }
 
 void register_plat_device(void)
@@ -158,9 +164,9 @@ ssize_t ndev_read(struct file *filep, char __user *buff, size_t count, loff_t *f
     if (*fpos + count > DEVICE_MEM)
         count = DEVICE_MEM - (*fpos);
 
-    if (copy_to_user(buff, &device_tx_buffer[0], count))
+    if (copy_to_user(buff, device_tx_buffer, count))
         return -EFAULT;
-    
+    memset(device_tx_buffer,0,count);
     pr_info("Requested file position %x\n", *fpos) ;  
     packet_status = PACKET_NOT_READY;
     *fpos = (*fpos + count)%DEVICE_MEM;

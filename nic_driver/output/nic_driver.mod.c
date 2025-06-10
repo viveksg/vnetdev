@@ -35,10 +35,12 @@ MODULE_INFO(retpoline, "Y");
 
 static const struct modversion_info ____versions[]
 __used __section("__versions") = {
+	{ 0xffeedf6a, "delayed_work_timer_fn" },
 	{ 0xc6f46339, "init_timer_key" },
 	{ 0xb2fcb56d, "queue_delayed_work_on" },
 	{ 0x122c3a7e, "_printk" },
 	{ 0x2cd5d0e1, "platform_driver_unregister" },
+	{ 0x2d7583be, "netif_carrier_off" },
 	{ 0x15ba50a6, "jiffies" },
 	{ 0x9fa7184a, "cancel_delayed_work_sync" },
 	{ 0x8c03d20c, "destroy_workqueue" },
@@ -49,10 +51,7 @@ __used __section("__versions") = {
 	{ 0xfb578fc5, "memset" },
 	{ 0xc2e0098c, "alloc_etherdev_mqs" },
 	{ 0x713adfb1, "platform_get_resource" },
-	{ 0x41ed3709, "get_random_bytes" },
-	{ 0xcf8ab1e3, "dev_addr_mod" },
 	{ 0x5029ec4, "register_netdev" },
-	{ 0xf0fdf6cb, "__stack_chk_fail" },
 	{ 0xd2b00e8d, "__netdev_alloc_skb" },
 	{ 0x435a3709, "skb_put" },
 	{ 0x4b5f959d, "skb_push" },
@@ -63,12 +62,12 @@ __used __section("__versions") = {
 	{ 0x9e07cb93, "__platform_driver_register" },
 	{ 0x5b8239ca, "__x86_return_thunk" },
 	{ 0x2f99106c, "unregister_netdev" },
+	{ 0xb0bbb928, "netif_carrier_on" },
 	{ 0x49cd25ed, "alloc_workqueue" },
-	{ 0xffeedf6a, "delayed_work_timer_fn" },
 	{ 0xb2b23fc2, "module_layout" },
 };
 
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "7B3AD6C16B1F72729AC69DC");
+MODULE_INFO(srcversion, "C9399DA6D7E4B55E4E50A93");
