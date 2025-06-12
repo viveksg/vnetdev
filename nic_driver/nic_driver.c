@@ -1,6 +1,7 @@
 
-#include "dma_controller.h"
 #include "registers.h"
+#include "common.h"
+#include "dma_controller.h"
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/slab.h>
@@ -269,19 +270,19 @@ static netdev_tx_t net_xmit(struct sk_buff *sbuff, struct net_device *sndev)
                 fields.status |= TX_STATUS_ENABLE_EOP;
                 transfer_len = buff_len - offset;
             }
-            for(int j = 0; j < sbuff->len;j++)
-            {
-                pr_info("byte %d , data = %c",j,sbuff->data[j]);
-            }
+           // for(int j = 0; j < sbuff->len;j++)
+           // {
+          //      pr_info("byte %d , data = %c",j,sbuff->data[j]);
+           // }
             queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, REG_TX_TDH, REG_TX_TDT, DESC_COUNT, &(sbuff->data[offset]), transfer_len, 0, fields);
         }
     }
     else
     {
-        for (int j = 0; j < sbuff->len; j++)
-        {
-            pr_info("byte %d , data = %c", j,sbuff->data[j]);
-        }
+       // for (int j = 0; j < sbuff->len; j++)
+       // {
+       //     pr_info("byte %d , data = %c", j,sbuff->data[j]);
+       // }
         fields.status |= TX_STATUS_ENABLE_EOP;
         queue_op_status = queue_op(QUEUE_OP_ENQUEUE, tx_desc, REG_TX_TDH, REG_TX_TDT, DESC_COUNT, sbuff->data, sbuff->len, 0, fields);
     }
@@ -334,7 +335,9 @@ static void set_mac_address(struct net_device *ndev)
     mac_addr[3] = (mac_lo >> 24) & 0xFF;
     mac_addr[4] = mac_hi & 0xFF;
     mac_addr[5] = (mac_hi >> 8) & 0xFF;
-    memcpy(ndev->dev_addr,mac_addr,6);
+    //memcpy(ndev->dev_addr,mac_addr,ETH_ALEN);
+    eth_hw_addr_set(ndev,mac_addr);
+    ndev->flags |= (IFF_BROADCAST | IFF_MULTICAST);
 }
 
 static int net_dev_probe(struct platform_device *pdev)

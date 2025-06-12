@@ -13,7 +13,6 @@
 #include <linux/platform_device.h>
 #include <linux/ioport.h>
 #include "registers.h"
-#include "nic_card.h"
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 
@@ -269,8 +268,8 @@ static void transmit_polling_function(struct work_struct *work)
             {
                 uint8_t *buffer_addr = (uint8_t *)phys_to_virt(qbase[i].buffer_address);
                 memcpy(&device_tx_buffer[offset], buffer_addr, qbase[i].length);
-                for(int j = offset; j < qbase[i].length;j++)
-                    pr_info("device_tx_buffer[%x] = %x",j,device_tx_buffer[j]);
+              //  for(int j = offset; j < qbase[i].length;j++)
+                 //   pr_info("device_tx_buffer[%x] = %x",j,device_tx_buffer[j]);
 
                 offset += qbase[i].length;
                 if ((qbase[i].status & TX_STATUS_ENABLE_EOP) == TX_STATUS_ENABLE_EOP)

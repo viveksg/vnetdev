@@ -26,8 +26,9 @@ deps_/home/vivsg/projects/vnetdev/nic_driver/nic_driver.o := \
     $(wildcard include/config/ARCH_USE_BUILTIN_BSWAP) \
     $(wildcard include/config/SHADOW_CALL_STACK) \
     $(wildcard include/config/KCOV) \
-  /home/vivsg/projects/vnetdev/nic_driver/../nic_card/includes/dma_controller.h \
+  /home/vivsg/projects/vnetdev/nic_driver/../nic_card/includes/registers.h \
   /home/vivsg/projects/vnetdev/nic_driver/../nic_card/includes/common.h \
+  /home/vivsg/projects/vnetdev/nic_driver/../nic_card/includes/dma_controller.h \
   include/linux/types.h \
     $(wildcard include/config/HAVE_UID16) \
     $(wildcard include/config/UID16) \
@@ -50,7 +51,6 @@ deps_/home/vivsg/projects/vnetdev/nic_driver/nic_driver.o := \
     $(wildcard include/config/X86_32) \
   arch/x86/include/uapi/asm/posix_types_64.h \
   include/uapi/asm-generic/posix_types.h \
-  /home/vivsg/projects/vnetdev/nic_driver/../nic_card/includes/registers.h \
   include/linux/module.h \
     $(wildcard include/config/MODULES) \
     $(wildcard include/config/SYSFS) \

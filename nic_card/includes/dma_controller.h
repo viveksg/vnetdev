@@ -20,9 +20,5 @@ typedef struct{
 }dma_descriptor_fields;
 
 
-void init_dma(uint32_t *registers);
-void init_desc(dma_descriptor dma_desc, int index, int desc_type);
-int dma_rx_op(uint8_t * buff);
-int dma_tx_op(uint8_t *buff);
 
 #endif

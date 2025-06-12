@@ -51,7 +51,9 @@ __used __section("__versions") = {
 	{ 0xfb578fc5, "memset" },
 	{ 0xc2e0098c, "alloc_etherdev_mqs" },
 	{ 0x713adfb1, "platform_get_resource" },
+	{ 0xcf8ab1e3, "dev_addr_mod" },
 	{ 0x5029ec4, "register_netdev" },
+	{ 0xf0fdf6cb, "__stack_chk_fail" },
 	{ 0xd2b00e8d, "__netdev_alloc_skb" },
 	{ 0x435a3709, "skb_put" },
 	{ 0x4b5f959d, "skb_push" },
@@ -70,4 +72,4 @@ __used __section("__versions") = {
 MODULE_INFO(depends, "");
 
 
-MODULE_INFO(srcversion, "C9399DA6D7E4B55E4E50A93");
+MODULE_INFO(srcversion, "C984AC843D70B33D92F1145");
