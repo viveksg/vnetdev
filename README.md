@@ -73,7 +73,8 @@ typedef struct{
 <p>
    
 ## Transmit Descriptor ring and buffer organization
-![](/doc/transmit_desc.png)
+
+![](/docs/transmit_desc.png)
 
 It's analogous to receive descriptor ring and buffer organization  
 
